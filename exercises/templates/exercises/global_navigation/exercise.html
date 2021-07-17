@@ -66,6 +66,8 @@ while True:
             }
         }
         function changegzweb(){
+            toggleGazebo();
+            
             document.getElementById("iframeGzweb").setAttribute("src", "http://" + websocket_address + ":6080/vnc.html?resize=remote&autoconnect=true");
             var display = document.getElementById('iframeGzweb').style.display
             console.log(display)
@@ -95,5 +97,6 @@ while True:
 <script src="{% static 'exercises/global_navigation/web-template/assets/local_functions.js' %}?v={{SYS_VERSION}}" type="text/javascript" charset="utf-8"></script>
 <script src="{% static 'exercises/global_navigation/web-template/assets/birds_eye.js' %}?v={{SYS_VERSION}}" type="text/javascript" charset="utf-8"></script>
 <script src="{% static 'exercises/global_navigation/web-template/assets/generatepath.js' %}?v={{SYS_VERSION}}" type="text/javascript" charset="utf-8"></script>
+<script src="{% static 'exercises/global_navigation/web-template/assets/controller.js' %}?v={{SYS_VERSION}}" type="text/javascript" charset="utf-8"></script>
 
 {% endblock %}
