@@ -9,8 +9,7 @@ stop_button.style.opacity = "0.4";
 stop_button.style.cursor = "not-allowed";
 // running variable for psuedo decoupling
 // Play/Pause from Reset
-var frequency = "0",
-	running = false;
+var frequency = "0";
 
 //WebSocket for Code
 var websocket_code;
@@ -18,7 +17,11 @@ function declare_code(websocket_address){
     websocket_code = new WebSocket("ws://" + websocket_address + ":1905/");
 
     websocket_code.onopen = function(event){
-        alert("[open] Connection established!");
+		radiConect.contentWindow.postMessage({command: 'launch_level', level: '5'}, '*');
+		if (websocket_gui.readyState == 1) {
+	                alert("[open] Connection established!");
+			radiConect.contentWindow.postMessage('up', '*');
+		}        
     }
     websocket_code.onclose = function(event){
         if(event.wasClean){
@@ -41,11 +44,15 @@ function declare_code(websocket_address){
 			// Parse GUI and Brain frequencies
 			document.querySelector("#ideal_gui_frequency").value = frequency_message.gui;
 			document.querySelector('#ideal_code_frequency').value = frequency_message.brain;
+                        // Parse real time factor
+                        document.querySelector('#real_time_factor').value = frequency_message.rtf;
         }
 
-        // Send the acknowledgment message along with frequency
-        code_frequency = document.querySelector('#code_frequency').value;
-		gui_frequency = document.querySelector('#gui_frequency').value;
+                // Send the acknowledgment message along with frequency
+                code_frequency = document.querySelector('#code_freq').value;
+		gui_frequency = document.querySelector('#gui_freq').value;
+                real_time_factor = document.querySelector('#real_time_factor').value; 
+ 
 		frequency_message = {"brain": code_frequency, "gui": gui_frequency};
 		websocket_code.send("#freq" + JSON.stringify(frequency_message));
     };
@@ -53,18 +60,26 @@ function declare_code(websocket_address){
 
 // Function that sends/submits the code!
 function submitCode(){
-	// Get the code from editor and add headers
-    var python_code = editor.getValue();
-    python_code = "#code\n" + python_code
+	try {
+		// Get the code from editor and add headers
+		var python_code = editor.getValue();
+		python_code = "#code\n" + python_code
 
-    console.log("Code Sent! Check terminal for more information!");
-    websocket_code.send(python_code);
+		// Get the debug level and add header
+		//var debug_level = document.querySelector('input[name = "debug"]').value;
+		var debug_level = 2;
+		python_code = "#dbug" + debug_level + python_code
 
-    stop_button.disabled = false;
-    stop_button.style.opacity = "1.0";
-	stop_button.style.cursor = "default";
+		websocket_code.send(python_code);
+		console.log("Code Sent! Check terminal for more information!");
 
-	running = true;
+		stop_button.disabled = false;
+		stop_button.style.opacity = "1.0";
+		stop_button.style.cursor = "default";
+	}
+	catch {
+		alert("Connection must be established before sending the code.")
+	}
 }
 
 // Function that send/submits an empty string
@@ -72,8 +87,6 @@ function stopCode(){
     var stop_code = "#code\n";
     console.log("Message sent!");
     websocket_code.send(stop_code);
-
-    running = false;
 }
 
 // Function to save the code
@@ -92,16 +105,6 @@ function loadCode(){
     var message = "#load";
     websocket_code.send(message);
 
-}
-
-// Function to command the simulation to reset
-function resetSim(){
-    // Send message to initiate reset
-    var message = "#rest"
-    websocket_code.send(message)
-    if(running == true){
-        submitCode();
-    }
 }
 
 // Function for range slider
