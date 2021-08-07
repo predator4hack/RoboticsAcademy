@@ -31,7 +31,6 @@ RUN rsync -a --exclude 'ace-builds' /RoboticsAcademy/exercises/static/exercises/
 
 COPY start.sh /start.sh
 COPY manager.py /manager.py
-COPY manager_utils.py /manager_utils.py
 COPY start_manager.sh /start_manager.sh
 COPY instructions.json /instructions.json
 

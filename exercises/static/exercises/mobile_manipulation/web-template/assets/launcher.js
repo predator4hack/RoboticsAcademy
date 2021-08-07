@@ -1,3 +1,7 @@
+var ws_manager;
+var gazeboToggle = false, gazeboOn = false;
+var simReset = false;
+
 function startSim() {
     ws_manager = new WebSocket("ws://" + websocket_address + ":8765/");
     exercise = "mobile_manipulation"
@@ -28,11 +32,38 @@ function startSim() {
                 radiConect.contentWindow.postMessage({command: 'launch_level', level: `${level}`}, '*');
                 websockets_connected = true;
                 declare_code(websocket_address);
-                declare_gui(websocket_address);
             }
-            setTimeout(function () {
-                ws_manager.send(JSON.stringify({"command" : "Pong"}));
-            }, 1000)
+            if (gazeboToggle) {
+                if (gazeboOn) {
+                    ws_manager.send(JSON.stringify({"command" : "startgz"}));
+                } else {
+                    ws_manager.send(JSON.stringify({"command" : "stopgz"}));
+                }
+    
+                gazeboToggle = false;
+            } else if (simReset){
+                ws_manager.send(JSON.stringify({"command": "reset"}));
+                simReset = false;
+            } 
+            else {
+                setTimeout(function () {
+                    ws_manager.send(JSON.stringify({"command" : "Pong"}));
+                }, 1000)
+            }
         }        
     }
+}
+
+function toggleGazebo() {
+    if (gazeboOn) {
+        gazeboOn = false;
+    } else {
+        gazeboOn = true;
+    }
+
+    gazeboToggle = true;
+}
+
+function resetSimulation() {
+    simReset = true;
 }

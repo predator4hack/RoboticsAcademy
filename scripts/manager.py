@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import sys
 import subprocess
 import asyncio
@@ -8,7 +9,7 @@ import threading
 import time
 import json
 import stat
-import manager_utils as m_utils
+
 # Function to check if a device exists
 def check_device(device_path):
     try:
@@ -18,6 +19,7 @@ def check_device(device_path):
 
 DRI_PATH = "/dev/dri/card0"
 ACCELERATION_ENABLED = check_device(DRI_PATH)
+print("> Acceleration Enabled: ", ACCELERATION_ENABLED)
 
 # Docker Thread class for running commands on threads
 class DockerThread(threading.Thread):
@@ -57,13 +59,13 @@ class Commands:
     # Function to get the instructions to run ROS
     def get_ros_instructions(self, exercise):
         if ACCELERATION_ENABLED:
-            roslaunch_cmd = '/bin/sh -c "export PWD="/";chmod +rwx /;export DISPLAY=:0;export VGL_DISPLAY=/dev/dri/card0;export OLDPWD=/etc/ros/rosdep;cd /;export LD_LIBRARY_PATH=/opt/ros/melodic/lib:/usr/lib/x86_64-linux-gnu/gazebo-9/plugins;export GAZEBO_MODEL_PATH=/usr/share/gazebo-9/models:$GAZEBO_MODEL_PATH;export GAZEBO_MODEL_DATABASE_URI=http://gazebosim.org/models;export ROS_DISTRO=melodic;export PKG_CONFIG_PATH=/opt/ros/melodic/lib/pkgconfig;export OGRE_RESOURCE_PATH=/usr/lib/x86_64-linux-gnu/OGRE-1.9.0;export SHLVL=1;export GAZEBO_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/gazebo-9/plugins:/catkin_ws/devel/lib:${GAZEBO_PLUGIN_PATH};export TERM=xterm;export ROS_VERSION=1;export GAZEBO_MASTER_URI=http://localhost:11345;ROS_ETC_DIR=/opt/ros/melodic/etc/ros;export CMAKE_PREFIX_PATH=/opt/ros/melodic;export ROS_PACKAGE_PATH=/opt/ros/melodic/share; chmod +x /opt/ros/melodic/bin/rosmaster;export ' \
+            roslaunch_cmd = '/bin/sh -c "export PWD="/";chmod +rwx /;export DISPLAY=:0;export VGL_DISPLAY=/dev/dri/card0;export OLDPWD=/etc/ros/rosdep;cd /;export LD_LIBRARY_PATH=/opt/ros/melodic/lib:/usr/lib/x86_64-linux-gnu/gazebo-9/plugins:/catkin_ws/devel/lib;export GAZEBO_MODEL_PATH=/usr/share/gazebo-9/models:$GAZEBO_MODEL_PATH;export GAZEBO_MODEL_DATABASE_URI=http://gazebosim.org/models;export ROS_DISTRO=melodic;export PKG_CONFIG_PATH=/opt/ros/melodic/lib/pkgconfig;export OGRE_RESOURCE_PATH=/usr/lib/x86_64-linux-gnu/OGRE-1.9.0;export SHLVL=1;export GAZEBO_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/gazebo-9/plugins:${GAZEBO_PLUGIN_PATH};export TERM=xterm;export ROS_VERSION=1;export GAZEBO_MASTER_URI=http://localhost:11345;ROS_ETC_DIR=/opt/ros/melodic/etc/ros;export CMAKE_PREFIX_PATH=/opt/ros/melodic;export ROS_PACKAGE_PATH=/opt/ros/melodic/share; chmod +x /opt/ros/melodic/bin/rosmaster;export ' \
                         'PYTHONPATH=/opt/ros/melodic/lib/python2.7/dist-packages; chmod +x /opt/ros/melodic/bin/roslaunch ; cd ' \
                         '/; export ROS_ROOT=/opt/ros/melodic/share/ros;export GAZEBO_RESOURCE_PATH=/usr/share/gazebo-9:$GAZEBO_RESOURCE_PATH; export ' \
                         'ROS_MASTER_URI=http://localhost:11311; export PATH=/opt/ros/melodic/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;' \
                         'export ROS_PACKAGE_PATH=/opt/ros/melodic/share:/Firmware:/Firmware/Tools/sitl_gazebo:/catkin_ws/src/industrial_robots:/catkin_ws/src/assets;'
         else:
-            roslaunch_cmd = '/bin/sh -c "export PWD="/";chmod +rwx /;export DISPLAY=:0;export OLDPWD=/etc/ros/rosdep;cd /;export LD_LIBRARY_PATH=/opt/ros/melodic/lib:/usr/lib/x86_64-linux-gnu/gazebo-9/plugins;export GAZEBO_MODEL_PATH=/usr/share/gazebo-9/models:$GAZEBO_MODEL_PATH;export GAZEBO_MODEL_DATABASE_URI=http://gazebosim.org/models;export ROS_DISTRO=melodic;export PKG_CONFIG_PATH=/opt/ros/melodic/lib/pkgconfig;export OGRE_RESOURCE_PATH=/usr/lib/x86_64-linux-gnu/OGRE-1.9.0;export SHLVL=1;export GAZEBO_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/gazebo-9/plugins:/catkin_ws/devel/lib:${GAZEBO_PLUGIN_PATH};export TERM=xterm;export ROS_VERSION=1;export GAZEBO_MASTER_URI=http://localhost:11345;ROS_ETC_DIR=/opt/ros/melodic/etc/ros;export CMAKE_PREFIX_PATH=/opt/ros/melodic;export ROS_PACKAGE_PATH=/opt/ros/melodic/share; chmod +x /opt/ros/melodic/bin/rosmaster;export ' \
+            roslaunch_cmd = '/bin/sh -c "export PWD="/";chmod +rwx /;export DISPLAY=:0;export OLDPWD=/etc/ros/rosdep;cd /;export LD_LIBRARY_PATH=/opt/ros/melodic/lib:/usr/lib/x86_64-linux-gnu/gazebo-9/plugins:/catkin_ws/devel/lib;export GAZEBO_MODEL_PATH=/usr/share/gazebo-9/models:$GAZEBO_MODEL_PATH;export GAZEBO_MODEL_DATABASE_URI=http://gazebosim.org/models;export ROS_DISTRO=melodic;export PKG_CONFIG_PATH=/opt/ros/melodic/lib/pkgconfig;export OGRE_RESOURCE_PATH=/usr/lib/x86_64-linux-gnu/OGRE-1.9.0;export SHLVL=1;export GAZEBO_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/gazebo-9/plugins:${GAZEBO_PLUGIN_PATH};export TERM=xterm;export ROS_VERSION=1;export GAZEBO_MASTER_URI=http://localhost:11345;ROS_ETC_DIR=/opt/ros/melodic/etc/ros;export CMAKE_PREFIX_PATH=/opt/ros/melodic;export ROS_PACKAGE_PATH=/opt/ros/melodic/share; chmod +x /opt/ros/melodic/bin/rosmaster;export ' \
                         'PYTHONPATH=/opt/ros/melodic/lib/python2.7/dist-packages; chmod +x /opt/ros/melodic/bin/roslaunch ; cd ' \
                         '/; export ROS_ROOT=/opt/ros/melodic/share/ros;export GAZEBO_RESOURCE_PATH=/usr/share/gazebo-9:$GAZEBO_RESOURCE_PATH; export ' \
                         'ROS_MASTER_URI=http://localhost:11311; export PATH=/opt/ros/melodic/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;' \
@@ -117,9 +119,12 @@ class Commands:
         console_thread.start()
 
     def start_rviz(self, exercise):
-        rviz_cmd = f'DISPLAY=:2 {self.instructions[exercise]["instructions_rviz"]}'
+        rviz_cmd = f"export DISPLAY=:2;"
+        if ACCELERATION_ENABLED:
+            rviz_cmd += "vglrun "
+        rviz_cmd += self.instructions[exercise]["instructions_rviz"]
 
-        rviz_thread = m_utils.DockerThread(rviz_cmd)
+        rviz_thread = DockerThread(rviz_cmd)
         rviz_thread.start()
 
     # Function to start VNC server
@@ -172,19 +177,18 @@ class Commands:
         else:
             roslaunch_thread = DockerThread(roslaunch_cmd)
             roslaunch_thread.start()
+
         args=["gz", "stats", "-p"]
         repeat = True
         while repeat:
-            process = subprocess.Popen(args, stdout=subprocess.PIPE, bufsize=1)
+            process = subprocess.Popen(args, stdout=subprocess.PIPE, bufsize=1, universal_newlines=True)
             with process.stdout:
-                for line in iter(process.stdout.readline, b''):
-                    if not ("is not running" in line.decode()):
+                for line in iter(process.stdout.readline, ''):
+                    if not ("is not running" in line):
                         repeat = False
                         break
                     else:
                         repeat = True
-
-
 
     # Function to pause Gazebo physics
     def pause_physics(self):
@@ -230,12 +234,11 @@ class Commands:
         os.popen(cmd_mel)
         cmd_rosout = "pkill -9 -f rosout"
         os.popen(cmd_rosout)
-        cmd_websocki = "pkill -9 -f websockify"
-        os.popen(cmd_websocki)
+        cmd_websockify = "pkill -9 -f websockify"
+        os.popen(cmd_websockify)
         cmd_x11vnc = "pkill -9 -f x11vnc"
         os.popen(cmd_x11vnc)
         cmd_novnc = "pkill -9 -f launch.sh"
-        os.popen(cmd_novnc)
         os.popen(cmd_novnc)
         cmd_console = "pkill -9 -f xterm"
         os.popen(cmd_console)
@@ -301,12 +304,8 @@ class Manager:
         self.commands.start_xserver(":1")
 
         # Start the exercise
-        if exercise in ["tb3_nav", "pick_place", "mobile_manipulation"]:
-            '''
-            RViz + Gazebo + Console
-            '''
+        if exercise in ["pick_place", "mobile_manipulation"]:
             # X Server for RViz
-            print("********Rviz + Gazebo + Console************")
             self.commands.start_xserver(":2")
 
             self.commands.start_gzserver(exercise)
@@ -319,16 +318,12 @@ class Manager:
             self.commands.start_vnc(":1", 5901, 1108)
             self.commands.start_vnc(":2", 5902, 6081)
 
-            # Start gazebo client
             time.sleep(2)
-            self.commands.start_gzclient(exercise, width, height)
             self.commands.start_rviz(exercise)
+            time.sleep(2)
             self.commands.start_console(width, height)
 
         elif exercise not in ["color_filter", "dl_digit_classifier"]:
-            '''
-            Gazebo + Console
-            '''
             self.commands.start_gzserver(exercise)
             self.commands.start_exercise(exercise)
             time.sleep(5)
@@ -356,33 +351,22 @@ class Manager:
         self.commands.start_vnc(":0", 5900, 6080)
 
         # Start the exercise
-        
-        if exercise in ["tb3_nav", "pick_place", "mobile_manipulation"]:
-            '''
-            RViz + Gazebo + Console
-            '''
-            # X Server for RViz
-            self.commands.start_xserver(":2")
-
+        if exercise in ["pick_place", "mobile_manipulation"]:
             self.commands.start_gzserver(exercise)
             self.commands.start_exercise(exercise)
             time.sleep(5)
             self.launch_level = 3
 
             # Start x11vnc servers
-            self.commands.start_vnc(":0", 5900, 6080)
             self.commands.start_vnc(":1", 5901, 1108)
             self.commands.start_vnc(":2", 5902, 6081)
 
-            # Start gazebo client
             time.sleep(2)
-            # self.commands.start_gzclient(exercise, width, height)
+            self.commands.start_rviz(exercise)
+            time.sleep(2)
             self.commands.start_console(width, height)
 
         elif exercise not in ["color_filter", "dl_digit_classifier"]:
-            '''
-            Gazebo + Console
-            '''
             self.commands.start_gzserver(exercise)
             self.commands.start_exercise(exercise)
             time.sleep(5)
@@ -390,9 +374,9 @@ class Manager:
 
             self.commands.start_vnc(":1", 5901, 1108)
 
-            # Start gazebo client
             time.sleep(2)
             self.commands.start_console(width, height)
+        
         else:
             self.commands.start_exercise(exercise)
             time.sleep(2)
@@ -437,7 +421,6 @@ class Manager:
                 
     # Function to start the websocket server
     def run_server(self):
-
         self.server = websockets.serve(self.handle, self.host, 8765)
         asyncio.get_event_loop().run_until_complete(self.server)
         asyncio.get_event_loop().run_forever()

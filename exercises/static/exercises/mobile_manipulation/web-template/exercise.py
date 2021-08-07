@@ -18,7 +18,6 @@ import rospy
 from std_srvs.srv import Empty
 import cv2
 
-from gui import GUI, ThreadGUI
 from hal import HAL
 from env import ENV
 from console import start_console, close_console
@@ -37,48 +36,23 @@ class Template:
         self.ideal_cycle = 80
         self.iteration_counter = 0
         self.real_time_factor = 0
-        self.frequency_message = {'brain': '', 'gui': '', 'rtf': ''}
+        self.frequency_message = {'brain': '', 'rtf': ''}
                 
         self.server = None
         self.client = None
         self.host = sys.argv[1]
 
-        # Initialize the GUI, HAL and Console behind the scenes
+        # Initialize the HAL and Console behind the scenes
         self.hal = HAL()
         self.env = ENV()
-        self.gui = GUI(self.host, self.hal, self.env)
 
     # Function to parse the code
     # A few assumptions: 
     # 1. The user always passes sequential and iterative codes
     # 2. Only a single infinite loop
     def parse_code(self, source_code):
-        if source_code[:5] == "#resu":
-            restart_simulation = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
-            restart_simulation()
-
-            return "", ""
-
-        elif source_code[:5] == "#paus":
-            pause_simulation = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
-            pause_simulation()
-
-            return "", ""
-
-        elif source_code[:5] == "#rest":
-            # reset_simulation = rospy.ServiceProxy('/gazebo/reset_world', Empty)
-            # reset_simulation()
-            self.env.reset()
-            # self.gui.reset_gui()
-            # if self.hal.get_landed_state() ==2 : self.hal.land()
-            # self.env.reset_env()
-            
-            return "", ""
-
-        else:
-            # Pause and unpause
-            sequential_code, iterative_code = self.seperate_seq_iter(source_code)
-            return iterative_code, sequential_code
+        sequential_code, iterative_code = self.seperate_seq_iter(source_code)
+        return iterative_code, sequential_code
     
     # Function to separate the iterative and sequential code
     def seperate_seq_iter(self, source_code):
@@ -118,8 +92,8 @@ class Template:
 
         # The Python exec function
         # Run the sequential part
-        gui_module, hal_module = self.generate_modules()
-        reference_environment = {"GUI": gui_module, "HAL": hal_module}
+        hal_module = self.generate_modules()
+        reference_environment = {"HAL": hal_module}
         exec(sequential_code, reference_environment)
 
         # Run the iterative part inside template
@@ -154,8 +128,6 @@ class Template:
         # Define HAL module
         hal_module = imp.new_module("HAL")
         hal_module.HAL = imp.new_module("HAL")
-        # hal_module.drone = imp.new_module("drone")
-        # motors# hal_module.HAL.motors = imp.new_module("motors")
 
         # Add HAL functions
         hal_module.HAL.pickup = self.hal.pickup
@@ -164,25 +136,21 @@ class Template:
         hal_module.HAL.move_joint_arm = self.hal.move_joint_arm
         hal_module.HAL.move_pose_arm = self.hal.move_pose_arm
         hal_module.HAL.move_joint_hand = self.hal.move_joint_hand
-        hal_module.HAL.generate_grasp = self.hal.generate_grasp
         hal_module.HAL.get_object_pose = self.hal.get_object_pose
         hal_module.HAL.get_target_position = self.hal.get_target_position
-
-        # Define GUI module
-        gui_module = imp.new_module("GUI")
-        gui_module.GUI = imp.new_module("GUI")
-
-        # Add GUI functions
-        # gui_module.GUI.showImage = self.gui.showImage
-        # gui_module.GUI.showLeftImage = self.gui.showLeftImage
+        hal_module.HAL.get_target_pose = self.hal.get_target_pose
+        hal_module.HAL.get_goal_to_client = self.hal.send_goal_to_client
+        hal_module.HAL.get_result_from_client = self.hal.get_result_from_client
+        hal_module.HAL.spawn_obstacle_rviz = self.hal.spawn_obstacle_rviz
+        hal_module.HAL.spawn_all_objects = self.hal.spawn_all_objects
+        hal_module.HAL.get_robot_pose = self.hal.get_robot_pose
 
         # Adding modules to system
         # Protip: The names should be different from
         # other modules, otherwise some errors
         sys.modules["HAL"] = hal_module
-        sys.modules["GUI"] = gui_module
 
-        return gui_module, hal_module
+        return hal_module
 
     # Function to measure the frequency of iterations
     def measure_frequency(self):
@@ -213,20 +181,15 @@ class Template:
 
     # Function to generate and send frequency messages
     def send_frequency_message(self):
-        # This function generates and sends frequency measures of the brain and gui
-        brain_frequency = 0; gui_frequency = 0
+        # This function generates and sends frequency measures of the brain
+        brain_frequency = 0
+        
         try:
             brain_frequency = round(1000 / self.ideal_cycle, 1)
         except ZeroDivisionError:
             brain_frequency = 0
 
-        try:
-            gui_frequency = round(1000 / self.thread_gui.ideal_cycle, 1)
-        except ZeroDivisionError:
-            gui_frequency = 0
-
         self.frequency_message["brain"] = brain_frequency
-        self.frequency_message["gui"] = gui_frequency
         self.frequency_message["rtf"] = self.real_time_factor
 
         message = "#freq" + json.dumps(self.frequency_message)
@@ -272,10 +235,6 @@ class Template:
         frequency = float(frequency_message["brain"])
         self.time_cycle = 1000.0 / frequency
 
-        # Set gui frequency
-        frequency = float(frequency_message["gui"])
-        self.thread_gui.time_cycle = 1000.0 / frequency
-
         return
 
     # The websocket function
@@ -284,6 +243,8 @@ class Template:
         if message[:5] == "#freq":
             frequency_message = message[5:]
             self.read_frequency_message(frequency_message)
+            time.sleep(1)
+            self.send_frequency_message()
             return
         
         try:
@@ -298,9 +259,6 @@ class Template:
     # Function that gets called when the server is connected
     def connected(self, client, server):
         self.client = client
-        # Start the GUI update thread
-        self.thread_gui = ThreadGUI(self.gui)
-        self.thread_gui.start()
 
         # Start the real time factor tracker thread
         self.stats_thread = threading.Thread(target=self.track_stats)
