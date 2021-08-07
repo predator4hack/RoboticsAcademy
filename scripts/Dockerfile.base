@@ -1,35 +1,82 @@
-FROM osrf/ros:melodic-desktop-full
-ENV NVIDIA_VISIBLE_DEVICES \
-    ${NVIDIA_VISIBLE_DEVICES:-all}
+FROM nvidia/opengl:1.2-glvnd-runtime-ubuntu18.04
 
-ENV NVIDIA_DRIVER_CAPABILITIES \
-    ${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics
+ARG VIRTUALGL_VERSION=2.6.90
+ARG TURBOVNC_VERSION=2.2.80
 
-LABEL com.nvidia.volumes.needed="nvidia_driver"
-ENV PATH /usr/local/nvidia/bin:${PATH}
-ENV LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
+# Make all NVIDIA GPUS visible
+ARG NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES all
 
 # Setup NON INTERACTIVE ENVIRONMENT
-ENV DEBIAN_FRONTEND noninteractive
+ARG DEBIAN_FRONTEND=noninteractive
 
-# Setup X11 Volume
-VOLUME /tmp/.X11-unix:/tmp/.X11-unix:rw
+# Install locales to prevent errors
+RUN apt-get clean && \
+    apt-get update && \
+    apt-get install --no-install-recommends -y locales && \
+    rm -rf /var/lib/apt/lists/* && \
+    locale-gen en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
 
-# BASE
-RUN apt-get update && apt-get -y --quiet --no-install-recommends install \
-        libjansson-dev \
-        libboost-dev \
-        imagemagick \
-        libtinyxml-dev \
-        mercurial \
-        build-essential \
-	&& apt-get -y autoremove \
-	&& apt-get clean autoclean \
-	&& rm -rf /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/*
+# Install desktop and tools
+RUN apt-get update && apt-get install -y \
+        software-properties-common \
+        apt-utils \
+        build-essential make gcc git \
+        ca-certificates \
+        curl wget \
+        gzip zip unzip \
+        libc6-dev libglu1 libglu1:i386 libegl1-mesa libegl1-mesa:i386 \
+        libsm6 libxv1 libxv1:i386 libpci3 \
+        python python-numpy python3 python3-numpy libpython-dev \
+        x11-xkb-utils xauth xfonts-base xkb-data \
+        libxtst6 libxtst6:i386 \
+        mlocate \
+        nano vim \
+        htop net-tools \
+        xterm rsync \
+        lubuntu-core lubuntu-desktop && \
+    rm -rf /var/lib/apt/lists/*
 
+# Install VirtualGL and TurboVNC
+RUN curl -fsSL -O https://s3.amazonaws.com/virtualgl-pr/main/linux/virtualgl_${VIRTUALGL_VERSION}_amd64.deb && \
+    curl -fsSL -O https://s3.amazonaws.com/virtualgl-pr/main/linux/virtualgl32_${VIRTUALGL_VERSION}_amd64.deb && \
+    apt-get update && apt-get install -y --no-install-recommends ./virtualgl_${VIRTUALGL_VERSION}_amd64.deb ./virtualgl32_${VIRTUALGL_VERSION}_amd64.deb && \
+    rm virtualgl_${VIRTUALGL_VERSION}_amd64.deb virtualgl32_${VIRTUALGL_VERSION}_amd64.deb && \
+    chmod u+s /usr/lib/libvglfaker.so && \
+    chmod u+s /usr/lib/libdlfaker.so && \
+    chmod u+s /usr/lib32/libvglfaker.so && \
+    chmod u+s /usr/lib32/libdlfaker.so && \
+    chmod u+s /usr/lib/i386-linux-gnu/libvglfaker.so && \
+    chmod u+s /usr/lib/i386-linux-gnu/libdlfaker.so && \
+    curl -fsSL -O https://s3.amazonaws.com/turbovnc-pr/dev/linux/turbovnc_${TURBOVNC_VERSION}_amd64.deb && \
+    apt-get update && apt-get install -y --no-install-recommends ./turbovnc_${TURBOVNC_VERSION}_amd64.deb && \
+    rm turbovnc_${TURBOVNC_VERSION}_amd64.deb && \
+    rm -rf /var/lib/apt/lists/* && \
+    echo -e "no-remote-connections\n\
+no-httpd\n\
+no-x11-tcp-connections\n\
+no-pam-sessions\n\
+permitted-security-types = None, VNC, otp\
+" > /etc/turbovncserver-security.conf
+# Set paths for VirtualGL and turboVNC
+ENV PATH "$PATH:/opt/VirtualGL/bin:/opt/TurboVNC/bin"
+
+# Install noVNC and Websockify
+RUN git clone https://github.com/novnc/noVNC.git -b v1.2.0 && \
+	cd noVNC/utils && \
+	git clone https://github.com/novnc/websockify websockify -b v0.9.0
+
+# Xorg segfault error mitigation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        dbus-x11 \
+        libdbus-c++-1-0v5 && \
+    rm -rf /var/lib/apt/lists/*
 
 # PX4
-RUN apt remove modemmanager
+# RUN apt remove modemmanager
 RUN apt-get update && apt-get -y --quiet --no-install-recommends install \
 		bzip2 \
 		ca-certificates \
@@ -74,15 +121,17 @@ RUN apt-get update && apt-get -y --quiet --no-install-recommends install \
 	&& apt-get -y autoremove \
 	&& apt-get clean autoclean \
 	&& rm -rf /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/*
-
+	
 RUN which xxd || apt install xxd -y || apt install vim-common --no-install-recommends -y
 
 # gtest
-RUN cd /usr/src/gtest \
+RUN apt-get update && apt-get install -y libgtest-dev cmake && \
+	cd /usr/src/gtest \
 	&& mkdir build && cd build \
 	&& cmake .. && make -j$(nproc) \
 	&& cp *.a /usr/lib \
-	&& cd .. && rm -rf build
+	&& cd .. && rm -rf build \
+	rm -rf /var/lib/apt/lists/*
 
 # Install Python 3 pip build dependencies first.
 RUN pip3 install wheel setuptools
@@ -126,35 +175,14 @@ RUN git clone --recursive https://github.com/eProsima/Fast-DDS-Gen.git -b v1.0.4
 	&& gradle install \
 	&& rm -rf /tmp/*
 
-RUN wget --quiet http://packages.osrfoundation.org/gazebo.key -O - | apt-key add - \
-	&& sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -sc` main" > /etc/apt/sources.list.d/gazebo-stable.list' \
-	&& apt-get update \
-	&& DEBIAN_FRONTEND=noninteractive apt-get -y --quiet --no-install-recommends install \
-		ant \
-		bc \
-		gazebo9 \
-		gstreamer1.0-plugins-bad \
-		gstreamer1.0-plugins-base \
-		gstreamer1.0-plugins-good \
-		gstreamer1.0-plugins-ugly \
-		libeigen3-dev \
-		libgazebo9-dev \
-		libgstreamer-plugins-base1.0-dev \
-		libimage-exiftool-perl \
-		libopencv-dev \
-		libxml2-utils \
-		protobuf-compiler \
-	&& apt-get -y autoremove \
-	&& apt-get clean autoclean \
-	&& rm -rf /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/*
-
+# Install ROS and ROS packages
 ENV ROS_DISTRO melodic
-
-RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 \
+RUN apt-get update && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 \
 	&& sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list' \
 	&& sh -c 'echo "deb http://packages.ros.org/ros-shadow-fixed/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-shadow.list' \
 	&& apt-get update \
 	&& apt-get -y --quiet --no-install-recommends install \
+		ros-$ROS_DISTRO-desktop-full \
 		geographiclib-tools \
 		libeigen3-dev \
 		libgeographic-dev \
@@ -177,7 +205,6 @@ RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key C1CF6E31E6B
 		ros-$ROS_DISTRO-rostest \
 		ros-$ROS_DISTRO-rosunit \
 		ros-$ROS_DISTRO-xacro \
-		xvfb \
 	&& geographiclib-get-geoids egm96-5 \
 	&& apt-get -y autoremove \
 	&& apt-get clean autoclean \
@@ -191,31 +218,57 @@ RUN pip install wheel setuptools \
 	packaging pyros-genmsg pyulog==0.8.* pyyaml requests rosdep rospkg serial six toml \
 	empy jinja2 matplotlib==2.2.* numpy pkgconfig px4tools pygments \
 	pymavlink 
+    
+# install bootstrap tools
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    build-essential \
+    python-rosdep \
+    python-rosinstall \
+    python-vcstools \
+    && rm -rf /var/lib/apt/lists/*
 
 # bootstrap rosdep
-# RUN rosdep init && rosdep update
-RUN rosdep update
+RUN rosdep init && rosdep update 
 
-## PX4 src
-RUN apt upgrade -y --quiet --no-install-recommends libignition-math2
-RUN git clone --recursive https://github.com/PX4/Firmware.git -b v1.11.3 \
-	&& cd /Firmware \
-	&& DONT_RUN=1 make px4_sitl_default gazebo
+# catkin build tools
+RUN apt-get update && apt-get install -y \
+    python-pyproj \
+    python-catkin-tools \
+    && apt-get clean
+
+# PX4 src
+RUN apt-get update && \
+     apt upgrade -y --quiet --no-install-recommends libignition-math2
+RUN git clone --recursive https://github.com/PX4/Firmware.git -b v1.11.3 
+#TOD0 https://github.com/PX4/PX4-Autopilot/issues/13117
+RUN sudo apt-get install libgstreamer-plugins-base1.0-dev -y
+RUN cd /Firmware \
+	&& DONT_RUN=1 make px4_sitl_default gazebo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Certain Dependencies for Exercises
+RUN apt-get update && \ 
+	# Vacuum Cleaner Exercise
+	apt-get -y --quiet install ros-melodic-kobuki-msgs  && \
+	# Drone-cat-mouse
+   	apt-get -y --quiet --no-install-recommends install xmlstarlet && \
+	# Follow Turtlebot exercise
+	apt-get -y --quiet --no-install-recommends install && ros-$ROS_DISTRO-turtlebot3-description \
+	# Industrial Robots Exercise
+	apt-get -y --quiet --no-install-recommends install ros-melodic-moveit ros-melodic-eband-local-planner ros-melodic-navigation
+
+# websocket server dependency
+RUN apt-get update && apt-get install -y python2.7 python-pip
+RUN pip install websocket_server posix-ipc
+RUN apt-get install -y python3.8 python3-pip
+RUN python3.8 -m pip install websockets asyncio
+RUN pip3 install django
 
 # Setup environment variables
 RUN echo 'export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/Firmware' >> ~/.bashrc
 RUN echo 'export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/Firmware/Tools/sitl_gazebo' >> ~/.bashrc
+RUN echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
 
-# Other exercises specific dependcies similar to PX4 like MoveIt may go here!
-# ...
-# ...
-
-# Constant installations
-# Dependencies required for all the exercises may go here!
-# In case of a new dependency
-# For installation with apt-get add it to the list of apt-get dependencies
-# For installation from a git repository add it to the end
-# Put the other commands in bashrc file
 RUN echo 'source /opt/ros/melodic/setup.bash' >> ~/.bashrc
 RUN echo 'source /usr/share/gazebo-9/setup.sh' >> ~/.bashrc
 
@@ -236,25 +289,3 @@ RUN apt-get update && apt-get --no-install-recommends install -y \
 
 RUN wget https://xpra.org/xorg.conf \
 	&& rm -rf /tmp/*
-
-# noVNC
-RUN git clone https://github.com/novnc/noVNC.git -b v1.2.0 && \
-	cd noVNC/utils && \
-	git clone https://github.com/novnc/websockify websockify -b v0.9.0
-
-# ROS dependencies for exercises
-# ros-melodic-kobuki-msgs: Vaccuum Cleaner
-# xmlstarlet: Drone Cat Mouse
-# ros-$ROS_DISTRO-turtlebot3-description: Follow Turtlebot
-RUN apt-get -y --quiet --no-install-recommends install \
-		ros-melodic-kobuki-msgs \
-		xmlstarlet \
-		ros-$ROS_DISTRO-turtlebot3-description \
-	&& apt-get -y autoremove \
-	&& apt-get clean autoclean \
-	&& rm -rf /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/*
-
-# python dependencies
-RUN pip install websocket_server posix-ipc
-RUN python3.8 -m pip install websockets asyncio
-RUN pip3 install django
