@@ -283,7 +283,7 @@ class Manager:
         self.commands.start_xserver(":1")
 
         # Start the exercise
-        if exercise in ["tb3_nav", "pick_place"]:
+        if exercise in ["tb3_nav", "machine_vision"]:
             '''
             RViz + Gazebo + Console
             '''
